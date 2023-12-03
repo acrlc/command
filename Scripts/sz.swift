@@ -3,7 +3,7 @@ import Command // ..
 
 @main struct CountSize: Command {
  @Flag var all: Bool
- @Options var exclude: [String] = .empty
+ @Option var exclude: [String] = .empty // example: "[.build, .DS_Store]"
  @Inputs var inputs: [String]
 
  var message: String { "reading \(all ? "all " : .empty)…" }
@@ -14,11 +14,11 @@ import Command // ..
  }
 
  func main() throws {
-  defer { Shell.clearLine() }
-  print("\r" + message, terminator: .empty)
-  fflush(stdout)
-
+  let message = self.message
   var total: UInt64 = .zero
+
+  Shell.appendInput(message)
+  Shell.clearInput(message.count)
 
   if inputs.isEmpty {
    let folder = Folder.current
@@ -67,9 +67,7 @@ extension CountSize {
   .reduce(UInt64.zero) { $0 + ($1[.size] ?? .zero) }
  }
 
- func echo(bytes: UInt64) -> Never {
-  Shell.clearLine()
-  print(formatter.string(fromByteCount: Int64(bytes)))
-  exit(0)
+ func echo(bytes: UInt64) {
+  print("\r" + formatter.string(fromByteCount: Int64(bytes)))
  }
 }

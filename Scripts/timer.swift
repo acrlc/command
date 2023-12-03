@@ -6,21 +6,22 @@ import Command // ..
 
  let start: Date = .now
 
- var nanoseconds: Int64 {
-  self.duration.reduce(into: 0) { sum, next in sum += next.nanoseconds }
+ var sum: Duration {
+  self.duration.reduce(into: .zero) { sum, next in sum += next }
  }
+ var nanoseconds: Int64 { self.sum.nanoseconds }
 
  func main() {
   if self.nanoseconds >= 1_000_000_000 {
    let seconds = Double(nanoseconds) / 1e9
    let start = self.start
    let end = start.advanced(by: seconds)
+      
    // MARK: - Repeat while current time is less than end time
    while true {
     guard Date.now < end else {
      // remove last buffer and exit command
-     fflush(stdout)
-     print("\r", terminator: .empty)
+     Shell.clearLine()
      exit(0)
     }
     // find the time since starting
@@ -29,16 +30,13 @@ import Command // ..
     // create duration based on the total subtracted by the current
     let time: Duration = .seconds(seconds - interval)
     let string = time.timerView
+
     // print the formatted elapsed duration
-    fflush(stdout)
-    print("\r" + string, terminator: .empty)
+    Shell.appendInput(string)
 
     // replace the buffer with an empty string
-    fflush(stdout)
-    print(
-     "\r" + String(repeating: .space, count: string.count),
-     terminator: .empty
-    )
+    Shell.clearInput(string.count)
+
     // repeat
     sleep(1)
    }

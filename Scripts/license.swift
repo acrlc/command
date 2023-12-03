@@ -45,8 +45,7 @@ struct LicenseView: View {
     TextField { input in
      let key = input.lowercased()
      if input == "exit" || input == "cancel" {
-      fflush(stdout)
-      print("\r", terminator: .empty)
+      Shell.clearLine()
       exit(0)
      }
 
