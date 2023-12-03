@@ -120,5 +120,7 @@ As per usual, the library can be extended through property wrappers that conform
 
 ### Notes
 Examples are in included in the scripts folder and can be used with [swift-shell](https://github.com/codeAcrylic/swift-shell)
+
 It’s possible to link or alias these scripts in your command line shell if you find them useful, and if you find any improvements, fixes, or apps of your own that you would like to share, please create a pull request to update or add apps to the main branch.
+
 All requests to either update the scripts folder or add a new feature will be taken into consideration and bug fixes are appreciated
