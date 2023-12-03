@@ -276,3 +276,22 @@ public extension RawRepresentable where RawValue: LosslessStringConvertible {
 
  var description: String { rawValue.description }
 }
+
+extension Array: LosslessStringConvertible
+ where Element: LosslessStringConvertible {
+ public init?(_ description: String) {
+  guard description.first == "[", description.last == "]" else { return nil }
+  var description = description
+
+  description.removeFirst()
+  description.removeLast()
+
+  let slice = description.split(separator: ",")
+  self.init()
+
+  for substring in slice {
+   guard let element = Element(String(substring)) else { return nil }
+   self.append(element)
+  }
+ }
+}
