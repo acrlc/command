@@ -5,7 +5,8 @@ Because this package is still early in development there could be some potential
 - Limited control over inputs. For example, there’s isn’t a protocol for determining all acceptable styles of an input (only short or long but not both)
 - The parser makes many assumptions (upside and downside). It sorts according to flag, option, then single or multiple unlabeled inputs. This may not be favored for apps that accept subcommands like `git clone` which in recursively, also accept a set of inputs
 - Lack of other features that are included with other argument parsers
-### `Command` and `AsyncCommand` 
+### Protocols
+#### `Command` and `AsyncCommand` 
 Are protocols that allow `@main` to be declared on a struct so it can be used in command line apps without declaring `static main()`. This framework also makes it simple to deploy those commands quickly through type reflection.
 By default, the library will read flags, options, and then unlabeled inputs
 ```swift
