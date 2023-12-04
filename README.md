@@ -120,7 +120,7 @@ enum RunMode: String, LosslessStringConvertible {
 As per usual, the library can be extended through property wrappers that conform to `CommandProperty` and read the same.
 
 ### Notes
-Examples are in included in the scripts folder and can be used with [swift-shell](https://github.com/codeAcrylic/swift-shell)
+Examples are in included in the scripts folder and can be used with [swift-shell](https://github.com/acrlc/swift-shell)
 
 It’s possible to link or alias these scripts in your command line shell if you find them useful, and if you find any improvements, fixes, or apps of your own that you would like to share, please create a pull request to update or add apps to the main branch.
 

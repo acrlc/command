@@ -6,8 +6,8 @@ let package = Package(
  platforms: [.macOS(.v10_15), .iOS(.v13)],
  products: [.library(name: "Command", targets: ["Command"])],
  dependencies: [
-  .package(url: "https://github.com/codeAcrylic/shell.git", branch: "main"),
-  .package(url: "https://github.com/codeAcrylic/mirror.git", from: "0.1.0")
+  .package(url: "https://github.com/acrlc/shell.git", branch: "main"),
+  .package(url: "https://github.com/acrlc/mirror.git", from: "0.1.0")
  ],
  targets: [
   .target(
