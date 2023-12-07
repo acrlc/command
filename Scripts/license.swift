@@ -12,13 +12,16 @@ import enum Crypto.Insecure
  @Flag var list: Bool
  @Input var license: License?
 
+ var descriptions: String {
+  License.allCases.map { name, description in
+   name == description ? name : "\(name), \(description)"
+  }
+  .joined(separator: .newline)
+ }
+
  func main() {
   if list {
-   let keys = License.allCases.keys.sorted()
-   let descriptions: String = keys.map { key in
-    key + .newline +
-     .space + License.allCases[key]!
-   }.joined(separator: .newline)
+   // FIXME: clipping when printed in a smaller window
    print(descriptions)
   } else if let license {
    print(license.body)
@@ -81,8 +84,9 @@ struct LicenseView: View {
     // options
     ScrollView {
      VStack(alignment: .leading) {
-      ForEach(License.allCases.keys.sorted(), id: \.hashValue) { key in
-       Button(key) { setLicense(key) }
+      ForEach(License.allCases, id: \.0.hashValue) { name, description in
+       let label = name == description ? name : "\(name), \(description)"
+       Button(label) { setLicense(name) }
       }
      }
     }
@@ -124,8 +128,8 @@ struct License: JSONCodable {
 }
 
 extension License: LosslessStringConvertible {
- typealias AllCases = [String: String]
- static let allCases: [String: String] = [
+ typealias AllCases = KeyValuePairs<String, String>
+ static let allCases: KeyValuePairs<String, String> = [
   "AFL-3.0": "Academic Free License v3.0",
   "Apache-2.0": "Apache license 2.0",
   "Artistic-2.0": "Artistic license 2.0",
@@ -165,7 +169,7 @@ extension License: LosslessStringConvertible {
  ]
 
  static func resolvedKey(from key: String) -> String? {
-  let string = allCases.keys.first(where: { $0.lowercased() == key })
+  let string = allCases.map(\.0).first(where: { $0.lowercased() == key })
   switch string {
   case "CC": return "CC0-1.0"
   case "GPL": return "GPL-3.0"
@@ -207,6 +211,6 @@ extension License: LosslessStringConvertible {
 
 extension License.AllCases {
  func containsLowercased(key: String) -> Bool {
-  keys.map { $0.lowercased() }.contains(key)
+  map { key, _ in key.lowercased() }.contains(key)
  }
 }
