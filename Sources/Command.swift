@@ -59,7 +59,7 @@ extension CommandProtocol {
 
 public protocol Command: CommandProtocol {
  init()
- func main() throws
+ mutating func main() throws
  static func main()
 }
 
@@ -68,7 +68,7 @@ public extension Command {
  func main() throws { fatalError("'\(#function)' isn't implemented") }
 
  @_disfavoredOverload
- func callAsCommand() {
+ mutating func callAsCommand() {
   do { try self.main() } catch { exit(error) }
  }
 
@@ -82,13 +82,13 @@ public extension Command {
 
 public protocol AsyncCommand: CommandProtocol {
  init()
- func main() async throws
+ mutating func main() async throws
  static func main() async
 }
 
 public extension AsyncCommand {
  @_disfavoredOverload
- func callAsCommand() async {
+ mutating func callAsCommand() async {
   do { try await self.main() } catch { exit(error) }
  }
 
