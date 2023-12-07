@@ -9,6 +9,7 @@ import Command // ..
  var sum: Duration {
   self.duration.reduce(into: .zero) { sum, next in sum += next }
  }
+
  var nanoseconds: Int64 { self.sum.nanoseconds }
 
  func main() {
@@ -16,7 +17,7 @@ import Command // ..
    let seconds = Double(nanoseconds) / 1e9
    let start = self.start
    let end = start.advanced(by: seconds)
-      
+
    // MARK: - Repeat while current time is less than end time
    while true {
     guard Date.now < end else {
@@ -28,7 +29,7 @@ import Command // ..
     let interval = Date.now.timeIntervalSince(start)
 
     // create duration based on the total subtracted by the current
-    let time: Duration = .seconds(seconds - interval)
+    let time: Duration = .seconds((seconds - interval).rounded(.up))
     let string = time.timerView
 
     // print the formatted elapsed duration
