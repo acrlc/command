@@ -7,13 +7,16 @@ let package = Package(
  products: [.library(name: "Command", targets: ["Command"])],
  dependencies: [
   .package(url: "https://github.com/acrlc/shell.git", branch: "main"),
-  .package(url: "https://github.com/acrlc/mirror.git", from: "0.1.0")
+  .package(
+   url: "https://github.com/philipturner/swift-reflection-mirror.git",
+   branch: "main"
+  ),
  ],
  targets: [
   .target(
    name: "Command",
    dependencies: [
-    .product(name: "Mirror", package: "mirror"),
+    .product(name: "ReflectionMirror", package: "swift-reflection-mirror"),
     .product(name: "Shell", package: "shell")
    ],
    path: "Sources"

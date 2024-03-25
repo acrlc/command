@@ -1,11 +1,9 @@
-import Mirror
-
 public protocol CommandProperty {
  associatedtype Value
  var wrappedValue: Value { get set }
  // Set with arguments and property info that allows reading the name of the
  // property
- mutating func set(_ info: PropertyInfo, with args: inout [String]) throws
+ mutating func set(_ label: String, with args: inout [String]) throws
  // Assert whether or not it's a flag, or option with no input
  var isFlag: Bool { get }
  var isOptional: Bool { get }
@@ -44,13 +42,13 @@ extension Bool: Negatable {}
  }
 
  public mutating func set(
-  _ info: PropertyInfo, with args: inout [String]
+  _ label: String, with args: inout [String]
  ) throws {
   var offset = 0
   while offset < args.count {
    let input = args[offset]
    if input.hasPrefix("-") {
-    let argument = info.name.dropFirst()
+    let argument = label.dropFirst()
     let option = input.drop(while: { $0 == "-" })
     if option == argument {
      self.wrappedValue.toggle()
@@ -86,6 +84,7 @@ extension Bool: Negatable {}
   self.strict = strict
  }
 
+ // TODO: print out errors if thrown by throwing initilizers
  public enum Error: CommandError {
   case conversion(str: String, arg: String)
   public var reason: String {
@@ -97,13 +96,13 @@ extension Bool: Negatable {}
  }
 
  public mutating func set(
-  _ info: PropertyInfo, with args: inout [String]
+  _ label: String, with args: inout [String]
  ) throws {
   var offset = 0
   while offset < args.count {
    let input = args[offset]
    if input.hasPrefix("-") {
-    let argument = info.name.dropFirst()
+    let argument = label.dropFirst()
     let option = input.drop(while: { $0 == "-" })
     let hasMatch =
      !self.strict && option.count == 1 ?
@@ -148,13 +147,13 @@ extension Bool: Negatable {}
  }
 
  public mutating func set(
-  _ info: PropertyInfo, with args: inout [String]
+  _ label: String, with args: inout [String]
  ) throws {
   var offset = 0
   while offset < args.count {
    let input = args[offset]
    if input.hasPrefix("-") {
-    let argument = info.name.dropFirst()
+    let argument = label.dropFirst()
     let option = input.drop(while: { $0 == "-" })
     let hasMatch =
      !self.strict && option.count == 1 ?
@@ -199,7 +198,7 @@ public struct CommandInput<Input: LosslessStringConvertible>: CommandProperty {
  }
 
  public mutating func set(
-  _ info: PropertyInfo, with args: inout [String]
+  _ label: String, with args: inout [String]
  ) throws {
   guard let last = args.last else { return }
   if let newValue = Input(last) {
@@ -224,7 +223,7 @@ public struct CommandInputs<Input: LosslessStringConvertible>: CommandProperty {
  }
 
  public mutating func set(
-  _ info: PropertyInfo, with args: inout [String]
+  _ label: String, with args: inout [String]
  ) throws {
   guard args.notEmpty else { return }
   let lowerBound = ((args.lastIndex(where: { $0.hasPrefix("-") }) ?? -1) + 1)
