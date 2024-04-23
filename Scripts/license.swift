@@ -189,7 +189,7 @@ extension License: LosslessStringConvertible {
   if let data = try? temp.file(named: hash).read() {
    try self.init(data)
   } else {
-   let data = try outputData(
+   let data = try processData(
     "gh",
     with: "api",
     "-H", "Accept: application/vnd.github+json",
