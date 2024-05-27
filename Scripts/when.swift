@@ -4,12 +4,10 @@ import Foundation
 import Time // @git/acrlc/Time
 
 @main
-struct When: AsyncCommand, TimeClock, @unchecked Sendable {
+struct When: AsyncCommand {
  @Option
  var time: Date?
- var now: Date { time ?? .distantFuture }
- let minimumResolution: TimeInterval = 1
- var clock: ContinuousClock { .continuous }
+ let clock: DateClock = .minimumResolution(1)
 
  @Option
  var input: File?
@@ -17,7 +15,12 @@ struct When: AsyncCommand, TimeClock, @unchecked Sendable {
  var arguments: [String]
  mutating func main() async throws {
   guard let time, time.timeIntervalSinceNow >= 1 else {
-   exit(2, "time must be a future date >= greater than one second")
+   if arguments.isEmpty || arguments.first == "help" {
+    print("\n" + CommandLine.usage!)
+    exit(0)
+   } else {
+    exit(2, "time must be a future date >= greater than one second")
+   }
   }
 
   var command = arguments.first
@@ -34,11 +37,22 @@ struct When: AsyncCommand, TimeClock, @unchecked Sendable {
    command = arguments.first
   }
 
-  try await sleep()
+  try await clock.sleep(until: time)
   
   if let command {
    try print(processOutput(command: command, arguments[1...]))
   }
+ }
+ 
+ 
+ init() {
+  CommandLine.usage =
+   """
+   usage: \("when", color: .green) -time 10:30
+   
+   requirements:
+   - time must be a clock measurement at least one second after the current time
+   """
  }
 }
 
