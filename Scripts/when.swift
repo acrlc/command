@@ -3,6 +3,21 @@ import Command // ..
 import Foundation
 import Time // @git/acrlc/Time
 
+/// A command that relies on fixed events such as time before executing a
+/// a command. This is helpful when you want to rely on absolute variables
+/// which are repeatable by default.
+///
+/// A timer only allows you to set relative time, when (could also be called
+/// wait) allows you to map to absolute states which are repeatable or can be
+/// mapped to a stable event during runtime. This mostly relies on time of the
+/// day or a date (which allows the process to sleep), but could also be
+/// extended to other processors that work on a subscriber to transaction basis.
+///
+/// If you set something within when, the process will sleep until the source
+/// of truth notifies our binding constant, that something has occured.
+///
+/// - parameter time:
+/// The future time in which the next command will be activated.
 @main
 struct When: AsyncCommand {
  @Option
@@ -33,23 +48,22 @@ struct When: AsyncCommand {
     arguments.contains(where: { $0.contains("{}") }) ?
     arguments.map { $0.replacingOccurrences(of: "{}", with: input.path) } :
     arguments
-   
+
    command = arguments.first
   }
 
   try await clock.sleep(until: time)
-  
+
   if let command {
    try print(processOutput(command: command, arguments[1...]))
   }
  }
- 
- 
+
  init() {
   CommandLine.usage =
    """
    usage: \("when", color: .green) -time 10:30
-   
+
    requirements:
    - time must be a clock measurement at least one second after the current time
    """
@@ -58,37 +72,64 @@ struct When: AsyncCommand {
 
 extension Date: LosslessStringConvertible {
  public init?(_ description: String) {
-  guard let description = description.wrapped else {
+  guard var description = description.wrapped else {
    return nil
   }
-  var components = description.split(separator: ":")
-  var offset = 0
+  var components =
+   description
+    .remove(while: { $0 != .space && !$0.isLetter })
+    .split(separator: .colon)
 
+  var offset = 0
   var digits: [Int] = .empty
-  // var indicator: Substring?
 
   while components.notEmpty {
    let substring = components.removeFirst()
    if let digit = Int(substring) {
     digits.append(digit)
-   } else if components.isEmpty {
-    // indicator = substring
-    break
    }
    offset += 1
   }
 
-  guard offset > -1 else {
+  // note: only accepts the current day, but allows both 12 and 24 hour time
+  // if locale is twelve hours, then 1 should indicate the next day if the
+  // current hour is past twelve
+  guard offset > 0, digits[0] <= 24 else {
    return nil
   }
 
   let calendar = Calendar.current
+  let start = calendar.startOfDay(for: .now)
+
+  // attempt to normalize digits that relate to signing (am/pm)
+  if digits[0] < 13 {
+   let trimmedDescription =
+    description.trimmingCharacters(in: .whitespaces).lowercased()
+
+   lazy var isTwelveHourTime = Locale.current.hoursPerCycle == 12
+
+   let start = calendar.startOfDay(for: .now)
+
+   if trimmedDescription == "am" || trimmedDescription == "pm" {
+    if trimmedDescription == "pm" {
+     // normalize hours if locale is based on 12 hour time
+     if isTwelveHourTime {
+      digits[0] += 12
+     } else {
+      // adjust to match the symbol if needed
+      digits[0] += 12
+     }
+    }
+   } else if isTwelveHourTime, (Date.now.timeIntervalSince(start) / 3600) !< 1 {
+    // assume the time is up from zero, so 1 will equal 13 hours
+    digits[0] += 12
+   }
+  }
+
   let
    hours: Int? = offset > 0 ? digits[0] : nil,
    minutes: Int? = offset > 1 ? digits[1] : nil,
    seconds: Int? = offset > 2 ? digits[2] : nil
-
-  let start = calendar.startOfDay(for: .now)
 
   var interval: TimeInterval = .zero
 
@@ -112,16 +153,3 @@ extension Date: LosslessStringConvertible {
   self = date
  }
 }
-
-/*
-extension Locale {
- var uses24HourTime: Bool {
-  let dateFormat = DateFormatter.dateFormat(
-   fromTemplate: "j",
-   options: 0,
-   locale: self
-  )!
-  return dateFormat.firstIndex(of: "a") == nil
- }
-}
-*/
