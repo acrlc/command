@@ -61,17 +61,6 @@ struct SwiftToolchain: Command {
   }
  }
 
- mutating func printOptionsIfAvailable() {
-  if let validOptions {
-   print(
-    """
-    available options:
-    \(validOptions.joined(separator: "\n"))
-    """
-   )
-  }
- }
-
  mutating func main() throws {
   let source =
   source ?? (try? Folder.home.createFile(named: ".swift-toolchain"))
@@ -91,7 +80,10 @@ struct SwiftToolchain: Command {
   }
   
   if list {
-   return printOptionsIfAvailable()
+   if let validOptions {
+    print(validOptions.joined(separator: "\n"))
+   }
+   return
   }
 
   if let input {
@@ -113,7 +105,12 @@ struct SwiftToolchain: Command {
 
    } else {
     echo("No toolchain was found for input '\(input)'", color: .red)
-    printOptionsIfAvailable()
+    if let validOptions {
+     print(
+      "List of available toolchains:",
+      validOptions.joined(separator: "\n"), separator: .newline
+     )
+    }
     exit(1)
    }
   } else {
