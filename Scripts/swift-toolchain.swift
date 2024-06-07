@@ -18,6 +18,7 @@ import Command // ..
 ///
 /// - parameters:
 ///  - source: The source that contains or should contain your environment variable labeled `TOOLCHAINS`
+///  - list: Lists the available toolchains
 ///  - reset: Resets the toolchain by removing the variable `TOOLCHAINS` from the `source` file
 ///  - input: The toolchain identifier or version to set
 @main
@@ -26,6 +27,8 @@ struct SwiftToolchain: Command {
  var source: File?
  @Flag
  var reset: Bool
+ @Flag
+ var list: Bool
  @Input
  var input: String?
 
@@ -37,11 +40,43 @@ struct SwiftToolchain: Command {
   try? globalPath?.subfolder(at: "swift-latest.xctoolchain") ??
   (try? userPath?.subfolder(at: "swift-latest.xctoolchain"))
 
- mutating func main() throws {
-  guard !reset else {
-   let source =
-    source ?? (try? Folder.home.createFile(named: ".swift-toolchain"))
+ var validOptions: [String]? {
+  mutating get {
+   var toolchains: [Folder] = .empty
 
+   if let globalPath {
+    toolchains += globalPath.subfolders.filter {
+     $0.extension == "xctoolchain"
+    }
+   }
+   if let userPath {
+    toolchains += userPath.subfolders.filter {
+     $0.extension == "xctoolchain"
+    }
+   }
+
+   guard toolchains.notEmpty else { return nil }
+
+   return toolchains.uniqued(on: \.name).map(\.nameExcludingExtension)
+  }
+ }
+
+ mutating func printOptionsIfAvailable() {
+  if let validOptions {
+   print(
+    """
+    available options:
+    \(validOptions.joined(separator: "\n"))
+    """
+   )
+  }
+ }
+
+ mutating func main() throws {
+  let source =
+  source ?? (try? Folder.home.createFile(named: ".swift-toolchain"))
+  
+  if reset {
    guard let source else {
     exit(
      1,
@@ -54,6 +89,11 @@ struct SwiftToolchain: Command {
    try resetIdentifier(for: source)
    return print("Toolchain was set to default")
   }
+  
+  if list {
+   return printOptionsIfAvailable()
+  }
+
   if let input {
    if let globalPath, let id = getIdentifier(for: globalPath, with: input) {
     if let source {
@@ -72,7 +112,9 @@ struct SwiftToolchain: Command {
     print("Toolchain was set to '\(id)'")
 
    } else {
-    exit(1, "No swift toolchain was installed for '\(input)'")
+    echo("No toolchain was found for input '\(input)'", color: .red)
+    printOptionsIfAvailable()
+    exit(1)
    }
   } else {
    if let id = Shell.env["TOOLCHAINS"] {
@@ -127,6 +169,8 @@ struct SwiftToolchain: Command {
      let version =
      getVersion(for: path), version.split(separator: ".")
       .dropLast().joined(separator: ".") == string {
+     return id
+    } else if string == path.nameExcludingExtension {
      return id
     }
    }
