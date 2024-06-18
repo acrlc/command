@@ -28,13 +28,29 @@ struct When: AsyncCommand {
  var input: File?
  @Inputs
  var arguments: [String]
+
+ func printUsage() {
+  print("\n" + CommandLine.usage!)
+ }
+
  mutating func main() async throws {
   guard let time, time.timeIntervalSinceNow >= 1 else {
-   if arguments.isEmpty || arguments.first == "help" {
-    print("\n" + CommandLine.usage!)
+   if arguments.first == "help" {
+    print("printing usage")
+    printUsage()
     exit(0)
    } else {
-    exit(2, "time must be a future date >= greater than one second")
+    echo(
+     !arguments.contains(
+      where: { ["t", "time"].contains($0.drop(while: { $0 == "-" })) }
+     )
+      ? "missing flag '-t' or '-time'"
+      : "time must be a future date >= greater than one second",
+     color: .yellow,
+     separator: .newline
+    )
+    printUsage()
+    exit(2)
    }
   }
 
@@ -131,7 +147,7 @@ extension Date: LosslessStringConvertible {
    minutes: Int? = offset > 1 ? digits[1] : nil,
    seconds: Int? = offset > 2 ? digits[2] : nil
 
-  var interval: TimeInterval = .zero
+  var interval: TimeInterval = if let seconds { Double(seconds) } else { .zero }
 
   if let hours {
    interval += TimeInterval(hours * 3600)
@@ -139,10 +155,6 @@ extension Date: LosslessStringConvertible {
 
   if let minutes {
    interval += TimeInterval(minutes * 60)
-  }
-
-  if let seconds {
-   interval += TimeInterval(seconds)
   }
 
   let date = start.addingTimeInterval(interval)
