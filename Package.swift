@@ -8,8 +8,8 @@ let package = Package(
  dependencies: [
   .package(url: "https://github.com/acrlc/shell.git", branch: "main"),
   .package(
-   url: "https://github.com/philipturner/swift-reflection-mirror.git",
-   branch: "main"
+   url: "https://github.com/acrlc/swift-reflection-mirror.git",
+   branch: "wasm-compatible"
   ),
  ],
  targets: [
