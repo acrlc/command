@@ -3,7 +3,9 @@ import Command // ..
 import struct Foundation.Date
 import struct Foundation.TimeInterval
 import class Foundation.UserDefaults
+import func Foundation.usleep
 import SwiftTUI // @git/rensbreur/SwiftTUI
+import SwiftUI
 
 let storage = UserDefaults.standard
 let countKey = "count"
@@ -14,13 +16,16 @@ var useStorage: Bool? { storage.bool(forKey: persistKey) }
 
 /// Calorie deficit tracking command line app.
 /// - note: This is a re-implementation of https://github.com/karpathy/calorie
-/// 
+///
 /// - parameters:
+///   - ui, -u: Open the desktop app instead of using the command line.
 ///   - reset, -r: Flag to remove all stored results.
 ///   - persist, -p <true/false>: Enable or disable persistent storage.
 ///   - count, -c <float>: Set calorie count before resuming or after resetting.
 @main
 struct Calorie: Command {
+ @Flag
+ var ui: Bool
  @Flag
  var reset: Bool
  @Option
@@ -28,60 +33,66 @@ struct Calorie: Command {
  @Option
  var count: Double?
 
- // MARK: - View
- struct CalorieView: View {
-  final class Counter: ObservableObject {
-   let hourlyCalorieBurn: Double = 2000 / 24
-   // these will count our calories burned at rest
-   var calorieCount: Double = storage.double(forKey: countKey) {
-    didSet { storage.setValue(calorieCount, forKey: countKey) }
-   }
+ // MARK: - Counter -
+ final class Counter: ObservableObject {
+  let hourlyCalorieBurn: Double = 2000 / 24
+  // these will count our calories burned at rest
+  var calorieCount: Double = storage.double(forKey: countKey) {
+   didSet { storage.setValue(calorieCount, forKey: countKey) }
+  }
 
-   let hourlyCalorieTargetDeficit: Double = 500 / 24.0
-   // goal is to lose 500 kcal/day (i.e. ~1 lb/week)
-   var desiredDeficitCount: Double =
-    storage.double(forKey: deficitKey) {
-    didSet {
-     storage.setValue(desiredDeficitCount, forKey: deficitKey)
-    }
-   }
-
-   var lastUpdateTime: TimeInterval! =
-    storage.object(forKey: updateKey) as? Double {
-    didSet { storage.setValue(lastUpdateTime!, forKey: updateKey) }
-   }
-
-   func updateCalorieCount() {
-    let currentTime = Date.timeIntervalSinceReferenceDate
-    let elapsedHours = (currentTime - lastUpdateTime) / 3600
-    calorieCount -= elapsedHours * hourlyCalorieBurn
-    desiredDeficitCount -= elapsedHours * hourlyCalorieTargetDeficit
-    lastUpdateTime = currentTime
-    deficitColor = calorieCount < desiredDeficitCount ? Color.green : .red
-   }
-
-   func restart() {
-    calorieCount = .zero
-    desiredDeficitCount = .zero
-    lastUpdateTime = Date.timeIntervalSinceReferenceDate
-    deficitColor = SwiftTUI.Color.default
-   }
-
-   @Published
-   var deficitColor = SwiftTUI.Color.default
-
-   init() {
-    if lastUpdateTime == nil {
-     lastUpdateTime = Date.timeIntervalSinceReferenceDate
-    } else {
-     updateCalorieCount()
-    }
+  let hourlyCalorieTargetDeficit: Double = 500 / 24.0
+  // goal is to lose 500 kcal/day (i.e. ~1 lb/week)
+  var desiredDeficitCount: Double =
+   storage.double(forKey: deficitKey) {
+   didSet {
+    storage.setValue(desiredDeficitCount, forKey: deficitKey)
    }
   }
 
-  @ObservedObject
-  var counter = Counter()
-  var body: some View {
+  @Published
+  var lastUpdateTime: TimeInterval! =
+   storage.object(forKey: updateKey) as? Double {
+   didSet { storage.setValue(lastUpdateTime!, forKey: updateKey) }
+  }
+
+  func updateCalorieCount() {
+   let currentTime = Date.timeIntervalSinceReferenceDate
+   let elapsedHours = (currentTime - lastUpdateTime) / 3600
+   calorieCount -= elapsedHours * hourlyCalorieBurn
+   desiredDeficitCount -= elapsedHours * hourlyCalorieTargetDeficit
+   lastUpdateTime = currentTime
+  }
+
+  func restart() {
+   calorieCount = .zero
+   desiredDeficitCount = .zero
+   lastUpdateTime = Date.timeIntervalSinceReferenceDate
+  }
+
+  init() {
+   if lastUpdateTime == nil {
+    lastUpdateTime = Date.timeIntervalSinceReferenceDate
+   } else {
+    updateCalorieCount()
+   }
+  }
+ }
+
+ // MARK: - View -
+ struct CalorieView: SwiftTUI.View {
+  @SwiftTUI.ObservedObject
+  var counter = Calorie.Counter()
+  @SwiftTUI.State
+  var deficitColor = SwiftTUI.Color.default
+
+  func updateCalorieCount() {
+   counter.updateCalorieCount()
+   deficitColor =
+    counter.calorieCount < counter.desiredDeficitCount ? .green : .red
+  }
+
+  var body: some SwiftTUI.View {
    VStack(alignment: .center, spacing: 1) {
     VStack(alignment: .center, spacing: 1) {
      Text("Calorie Status")
@@ -89,12 +100,15 @@ struct Calorie: Command {
      Text(String(format: "%.2f", counter.calorieCount))
 
      Text("GOAL: \(String(format: "%.2f", counter.desiredDeficitCount))")
-      .foregroundColor(counter.deficitColor)
+      .foregroundColor(deficitColor)
     }
 
     HStack(spacing: 1) {
      Button(
-      action: { counter.restart() },
+      action: {
+       counter.restart()
+       deficitColor = SwiftTUI.Color.default
+      },
       label: {
        Text("Reset")
       }
@@ -102,7 +116,7 @@ struct Calorie: Command {
      .background(Color.red)
      Button(
       action: {
-       counter.updateCalorieCount()
+       updateCalorieCount()
        counter.calorieCount -= 100
       },
       label: {
@@ -113,7 +127,7 @@ struct Calorie: Command {
 
      Button(
       action: {
-       counter.updateCalorieCount()
+       updateCalorieCount()
        counter.calorieCount += 100
       },
       label: {
@@ -125,17 +139,112 @@ struct Calorie: Command {
     .foregroundColor(.white)
    }
    .onAppear {
-    Task {
+    Task(priority: .userInitiated) {
      repeat {
-      try? await Task.sleep(nanoseconds: 500_000_000)
-      counter.updateCalorieCount()
+      usleep(500_000)
+      updateCalorieCount()
      } while true
     }
    }
   }
  }
 
- // MARK: - Main
+ // MARK: - App -
+ struct CalorieApp: SwiftUI.App {
+  @SwiftUI.ObservedObject
+  var counter = Calorie.Counter()
+
+  @SwiftUI.State
+  var deficitColor: SwiftUI.Color = .primary
+
+  func updateCalorieCount() {
+   counter.updateCalorieCount()
+   deficitColor =
+    counter.calorieCount < counter.desiredDeficitCount ? .green : .red
+  }
+
+  var body: some SwiftUI.Scene {
+   WindowGroup("Calorie Status") {
+    VStack(alignment: .center) {
+     VStack {
+      Text("Calorie Status")
+       .font(.custom("Arial", size: 32))
+       .fontWeight(.semibold)
+       .padding(.top, 24)
+
+      Text(String(format: "%.2f", counter.calorieCount))
+       .font(.custom("Arial", size: 48))
+       .padding(.vertical, 32)
+
+      Text("GOAL: \(String(format: "%.2f", counter.desiredDeficitCount))")
+       .font(.custom("Arial", size: 24))
+       .foregroundStyle(deficitColor)
+     }
+     .padding(.bottom, 20)
+     .foregroundStyle(Color.primary.opacity(0.92))
+
+     HStack(spacing: 15) {
+      Button(
+       action: {
+        counter.restart()
+        deficitColor = .primary
+       },
+       label: {
+        Text("Reset")
+         .padding(.vertical, 10)
+         .padding(.horizontal, 20)
+         .contentShape(Rectangle())
+       }
+      )
+      .background(Color.red)
+      .cornerRadius(5)
+      Button(
+       action: {
+        updateCalorieCount()
+        counter.calorieCount -= 100
+       },
+       label: {
+        Text("-100 kcal")
+         .padding(.vertical, 10)
+         .padding(.horizontal, 20)
+         .contentShape(Rectangle())
+       }
+      )
+      .background(Color.green)
+      .cornerRadius(5)
+
+      Button(
+       action: {
+        updateCalorieCount()
+        counter.calorieCount += 100
+       },
+       label: {
+        Text("+100 kcal")
+         .padding(.vertical, 10)
+         .padding(.horizontal, 20)
+         .contentShape(Rectangle())
+       }
+      )
+      .background(Color.blue)
+      .cornerRadius(5)
+     }
+     .buttonStyle(.plain)
+     .foregroundStyle(Color.white.opacity(0.92))
+    }
+    .padding(24)
+    .background(.background)
+    .cornerRadius(10)
+    .task {
+     repeat {
+      try? await Task.sleep(nanoseconds: 500_000_000)
+      updateCalorieCount()
+     } while true
+    }
+   }
+  }
+ }
+
+ // MARK: - Main -
  func main() {
   // set when not already the default or the same
   if let persist, persist != useStorage {
@@ -151,6 +260,10 @@ struct Calorie: Command {
   }
 
   if let count { storage.setValue(count, forKey: countKey) }
-  Application(rootView: CalorieView()).start()
+  if ui {
+   CalorieApp.main()
+  } else {
+   Application(rootView: CalorieView()).start()
+  }
  }
 }
