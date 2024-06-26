@@ -55,6 +55,10 @@ struct Calorie: Command {
    storage.object(forKey: updateKey) as? Double {
    didSet { storage.setValue(lastUpdateTime!, forKey: updateKey) }
   }
+  
+  var updateTask: Task<(), Never>? {
+   willSet { updateTask?.cancel() }
+  }
 
   func updateCalorieCount() {
    let currentTime = Date.timeIntervalSinceReferenceDate
@@ -90,6 +94,15 @@ struct Calorie: Command {
    counter.updateCalorieCount()
    deficitColor =
     counter.calorieCount < counter.desiredDeficitCount ? .green : .red
+  }
+  
+  func startTask() {
+   counter.updateTask = Task(priority: .userInitiated) {
+    repeat {
+     try? await sleep(nanoseconds: 500_000_000)
+     updateCalorieCount()
+    } while true
+   }
   }
 
   var body: some SwiftTUI.View {
@@ -138,14 +151,7 @@ struct Calorie: Command {
     }
     .foregroundColor(.white)
    }
-   .onAppear {
-    Task(priority: .userInitiated) {
-     repeat {
-      usleep(500_000)
-      updateCalorieCount()
-     } while true
-    }
-   }
+   .onAppear { startTask() }
   }
  }
 
@@ -162,6 +168,17 @@ struct Calorie: Command {
    deficitColor =
     counter.calorieCount < counter.desiredDeficitCount ? .green : .red
   }
+  
+  func startTask() {
+   counter.updateTask = Task(priority: .userInitiated) {
+    repeat {
+     try? await sleep(nanoseconds: 500_000_000)
+     updateCalorieCount()
+    } while true
+   }
+  }
+  
+  func endTask() { counter.updateTask = nil }
 
   var body: some SwiftUI.Scene {
    WindowGroup("Calorie Status") {
@@ -234,12 +251,8 @@ struct Calorie: Command {
     .padding(24)
     .background(.background)
     .cornerRadius(10)
-    .task {
-     repeat {
-      try? await Task.sleep(nanoseconds: 500_000_000)
-      updateCalorieCount()
-     } while true
-    }
+    .onAppear { startTask() }
+    .onDisappear { endTask() }
    }
   }
  }
