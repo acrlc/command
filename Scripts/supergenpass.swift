@@ -35,19 +35,19 @@ struct SuperGenPass: Command {
     exit(2, "at least one argument must be entered (length)")
    }
 
-   guard inputs[1].drop(while: { $0 == "-" }) != "help" else {
+   guard inputs[0].drop(while: { $0 == "-" }) != "help" else {
     print(CommandLine.usage.unsafelyUnwrapped)
     exit(0)
    }
 
-   guard let length = Int(inputs[1]), length > 0 else {
+   guard let length = Int(inputs[0]), length > 0 else {
     print(CommandLine.usage.unsafelyUnwrapped)
     exit(1, "invalid argument for length, must be an unsigned integer > 0")
    }
 
    var count = 1
    if inputs.count > 1 {
-    guard let input = Int(inputs[2]), input > 0 else {
+    guard let input = Int(inputs[1]), input > 0 else {
      exit(1, "invalid argument for count, must be an unsigned integer > 0")
     }
     count = input
@@ -55,9 +55,7 @@ struct SuperGenPass: Command {
 
    let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
    for _ in 0 ..< count {
-    print(
-     String((0 ..< length).map { _ in chars.randomElement()! })
-    )
+    print((0 ..< length).map { _ in String(chars.randomElement()!) }.joined())
    }
   }
  }
