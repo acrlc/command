@@ -22,7 +22,13 @@ struct SuperGenPass: Command {
      .throwing(reason: "password couldn't generate!")
    )
   } else if let input {
-   // TODO: prompt for secret and process optional arguments
+   let secret = String(cString: getpass("Secret: " as String))
+   Shell.clearScrollback()
+   
+   try print(
+    pwgen(secret, input, length: length ?? 10, with: Insecure.MD5.self)
+     .throwing(reason: "password couldn't generate!")
+   )
   } else {
    guard inputs.notEmpty else {
     print(CommandLine.usage.unsafelyUnwrapped)
