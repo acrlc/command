@@ -1,6 +1,6 @@
 #!/usr/bin/env swift-shell
 import Command // ..
-import Crypto // @git/apple/swift-crypto
+import Crypto // $sources/apple/swift-crypto
 import Foundation
 
 @main
@@ -8,9 +8,14 @@ struct SuperGenPass: Command {
  @Option var secret: String?
  @Option var input: String?
  @Option var length: Int?
+ @Flag(.strictName) var help: Bool
  @Inputs var inputs: [String]
 
- mutating func main() throws {
+ consuming func main() throws {
+  if help {
+   print(CommandLine.usage.unsafelyUnwrapped)
+   exit(0)
+  }
   if let secret {
    guard let input else {
     print(CommandLine.usage.unsafelyUnwrapped)
@@ -22,7 +27,7 @@ struct SuperGenPass: Command {
      .throwing(reason: "password couldn't generate!")
    )
   } else if let input {
-   let secret = String(cString: getpass("Secret: " as String))
+   let secret = secret ?? String(cString: getpass("Secret: " as String))
    Shell.clearScrollback()
    
    try print(

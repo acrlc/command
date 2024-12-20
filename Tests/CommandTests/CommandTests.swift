@@ -3,7 +3,7 @@ import XCTest
 
 final class CommandTests: XCTestCase {
  func testCommand() throws {
-  CommandLine.arguments = [#filePath, "Hello World!"]
+  CommandInfo.arguments = [#filePath, "Hello World!"]
   var command = PrintCommand()
   try command.readArguments()
   try command.main()
@@ -11,21 +11,21 @@ final class CommandTests: XCTestCase {
 
  func testFlag() throws {
   // test flag sets to true
-  CommandLine.arguments = [#filePath, "-toggle"]
+  CommandInfo.arguments = [#filePath, "-toggle"]
   var falseCommand = AssertToggleCommand() // default is false
   try falseCommand.readArguments()
   try falseCommand.main()
 
   // test flag set to false
   // note: flags should be able to override
-  CommandLine.arguments = [#filePath, "-t"]
+  CommandInfo.arguments = [#filePath, "-t"]
   var trueCommand = AssertToggleCommand(override: true)
   try trueCommand.readArguments()
   try trueCommand.main()
  }
 
  func testAsyncCommand() async throws {
-  CommandLine.arguments = [#filePath, "Hello World!"]
+  CommandInfo.arguments = [#filePath, "Hello World!"]
   var command = PrintAsyncCommand()
   try command.readArguments()
   try await command.main()

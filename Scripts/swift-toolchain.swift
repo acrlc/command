@@ -19,6 +19,7 @@ import Command // ..
 /// - parameters:
 ///  - source: The source that contains or should contain your environment variable labeled `TOOLCHAINS`
 ///  - list: Lists the available toolchains
+///  - print: Prints out the expected toolchain, which can be useful for exporting
 ///  - reset: Resets the toolchain by removing the variable `TOOLCHAINS` from the `source` file
 ///  - input: The toolchain identifier or version to set
 @main
@@ -29,6 +30,8 @@ struct SwiftToolchain: Command {
  var reset: Bool
  @Flag
  var list: Bool
+ @Flag
+ var print: Bool
  @Input
  var input: String?
 
@@ -42,29 +45,40 @@ struct SwiftToolchain: Command {
 
  var validOptions: [String]? {
   mutating get {
-   var toolchains: [Folder] = .empty
+   var toolchains: [(folder: Folder, id: String)] = .empty
+
+   func getToolchain(_ folder: Folder) -> (Folder, String)? {
+    guard let id = getIdentifier(for: folder) else { return nil }
+    return (folder, id)
+   }
 
    if let globalPath {
-    toolchains += globalPath.subfolders.filter {
-     $0.extension == "xctoolchain"
-    }
+    toolchains += globalPath.subfolders.compactMap(getToolchain)
    }
    if let userPath {
-    toolchains += userPath.subfolders.filter {
-     $0.extension == "xctoolchain"
-    }
+    toolchains += userPath.subfolders.compactMap(getToolchain)
    }
 
    guard toolchains.notEmpty else { return nil }
 
-   return toolchains.uniqued(on: \.name).map(\.nameExcludingExtension)
+   return toolchains.uniqued(on: \.folder.name)
+    .map { "\($0.nameExcludingExtension), ID: \($1)" }
+  }
+ }
+ 
+ mutating func printToolchainsIfAvailable() {
+  if let validOptions {
+   Swift.print(
+    "List of available toolchains:",
+    validOptions.joined(separator: "\n"), separator: .newline
+   )
   }
  }
 
- mutating func main() throws {
+ consuming func main() throws {
   let source =
-  source ?? (try? Folder.home.createFile(named: ".swift-toolchain"))
-  
+   source ?? (try? Folder.home.createFile(named: ".swift-toolchain"))
+
   if reset {
    guard let source else {
     exit(
@@ -76,67 +90,66 @@ struct SwiftToolchain: Command {
     )
    }
    try resetIdentifier(for: source)
-   return print("Toolchain was set to default")
+   return Swift.print("Toolchain was set to default")
   }
-  
+
   if list {
-   if let validOptions {
-    print(validOptions.joined(separator: "\n"))
-   }
+   printToolchainsIfAvailable()
    return
   }
 
   if let input {
    if let globalPath, let id = getIdentifier(for: globalPath, with: input) {
-    if let source {
+    if self.print {
+     return Swift.print(id)
+    } else if let source {
      try setIdentifier(for: source, with: id)
     } else {
-     setenv("TOOLCHAINS", id, 1)
+     setenv("TOOLCHAINS" as String, id, 1)
     }
-    print("Toolchain was set to '\(id)'")
+    Swift.print("Toolchain was set to '\(id)'")
 
    } else if let userPath, let id = getIdentifier(for: userPath, with: input) {
-    if let source {
+    if self.print {
+    return  Swift.print(id)
+    } else if let source {
      try setIdentifier(for: source, with: id)
     } else {
-     setenv("TOOLCHAINS", id, 1)
+     setenv("TOOLCHAINS" as String, id, 1)
     }
-    print("Toolchain was set to '\(id)'")
+    Swift.print("Toolchain was set to '\(id)'")
 
    } else {
     echo("No toolchain was found for input '\(input)'", color: .red)
-    if let validOptions {
-     print(
-      "List of available toolchains:",
-      validOptions.joined(separator: "\n"), separator: .newline
-     )
-    }
+    printToolchainsIfAvailable()
     exit(1)
    }
   } else {
    if let id = Shell.env["TOOLCHAINS"] {
     if
      let globalPath,
-     let version = getVersionWithIdentifier(for: globalPath, with: id) {
-     print(
+     let version = getVersionWithIdentifier(for: globalPath, with: id)
+    {
+     Swift.print(
       "\("Current:", style: .underlined)",
       "\(version, style: [.bold, .italic])"
      )
-    }
-    else if
+    } else if
      let userPath,
-     let version = getVersionWithIdentifier(for: userPath, with: id) {
-     print(
+     let version = getVersionWithIdentifier(for: userPath, with: id)
+    {
+     Swift.print(
       "\("Current:", style: .underlined)",
       "\(version, style: [.bold, .italic])"
      )
     }
    } else if
     let latestToolchain,
-    let version = getVersion(for: latestToolchain) {
-    print("\("Latest:", style: .underlined)", "\(version, style: .bold)")
+    let version = getVersion(for: latestToolchain)
+   {
+    Swift.print("\("Latest:", style: .underlined)", "\(version, style: .bold)")
    } else if let swiftVersion = try? processOutput(.swift, with: "--version") {
-    print(swiftVersion)
+    Swift.print(swiftVersion)
    }
   }
  }
@@ -165,7 +178,8 @@ struct SwiftToolchain: Command {
     if
      let version =
      getVersion(for: path), version.split(separator: ".")
-      .dropLast().joined(separator: ".") == string {
+      .dropLast().joined(separator: ".") == string
+    {
      return id
     } else if string == path.nameExcludingExtension {
      return id
@@ -182,7 +196,8 @@ struct SwiftToolchain: Command {
   for path in folder.subfolders where path.extension == "xctoolchain" {
    guard
     let id = getIdentifier(for: path), id == string,
-    let version = getVersion(for: path) else {
+    let version = getVersion(for: path)
+   else {
     continue
    }
    return version
@@ -196,7 +211,8 @@ struct SwiftToolchain: Command {
   lazy var variable: Substring = "export TOOLCHAINS=\(id)"
   if
    let variableIndex =
-   split.firstIndex(where: { $0.hasPrefix("export TOOLCHAINS") }) {
+   split.firstIndex(where: { $0.hasPrefix("export TOOLCHAINS") })
+  {
    split[variableIndex] = variable
    split[variableIndex...]
     .removeAll(where: { $0.contains("export TOOLCHAINS") })
@@ -212,7 +228,8 @@ struct SwiftToolchain: Command {
   var split = string.split(separator: .newline)
   if
    let variableIndex =
-   split.firstIndex(where: { $0.hasPrefix("export TOOLCHAINS") }) {
+   split.firstIndex(where: { $0.hasPrefix("export TOOLCHAINS") })
+  {
    split.remove(at: variableIndex)
    split[variableIndex...]
     .removeAll(where: { $0.contains("export TOOLCHAINS") })

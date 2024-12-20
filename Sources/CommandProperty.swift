@@ -1,4 +1,4 @@
-public protocol CommandProperty {
+public protocol CommandProperty: ~Copyable {
  associatedtype Value
  var wrappedValue: Value { get set }
  // Set with arguments and property info that allows reading the name of the
@@ -14,6 +14,17 @@ public extension CommandProperty {
  var isOptional: Bool { false }
 }
 
+public struct CommandPropertyOptions: OptionSet {
+ public let rawValue: Int
+
+ public static let strictName = Self(rawValue: 1 << 0)
+// static let optionB = Self(rawValue: 1 << 1)
+// static let optionC = Self(rawValue: 1 << 2)
+ public init(rawValue: Int) {
+  self.rawValue = rawValue
+ }
+}
+
 public protocol FlaggedProperty: CommandProperty {}
 public extension FlaggedProperty {
  var isFlag: Bool { true }
@@ -26,19 +37,31 @@ extension Bool: Negatable {}
 @propertyWrapper public struct CommandFlag<Value: Negatable>: FlaggedProperty {
  /// Whether or not to use the full (strict) variable name when parsing or allow the first
  /// letter to use as an argument
- public let strict: Bool
+ public var options: CommandPropertyOptions = []
  public var wrappedValue: Value
 
- public init(wrappedValue: Value, _ strict: Bool = false) {
+ public init(wrappedValue: Value, _ options: CommandPropertyOptions ...) {
   self.wrappedValue = wrappedValue
-  self.strict = strict
+  for option in options {
+   self.options.insert(option)
+  }
  }
 
  public init(
-  wrappedValue: Value = false, _ strict: Bool = false
+  wrappedValue: Value = false, _ options: CommandPropertyOptions ...
  ) where Value == Bool {
   self.wrappedValue = wrappedValue
-  self.strict = strict
+  for option in options {
+   self.options.insert(option)
+  }
+ }
+
+ public init(wrappedValue: Value) {
+  self.wrappedValue = wrappedValue
+ }
+
+ public init(wrappedValue: Value = false) where Value == Bool {
+  self.wrappedValue = wrappedValue
  }
 
  public mutating func set(
@@ -51,13 +74,13 @@ extension Bool: Negatable {}
     let argument = label.dropFirst()
     let option = input.drop(while: { $0 == "-" })
     if option == argument {
-     self.wrappedValue.toggle()
+     wrappedValue.toggle()
      args.remove(at: offset)
      break
-    } else if !self.strict {
+    } else if !options.contains(.strictName) {
      // run through single flags
      if option.count == 1, option.first == argument.first {
-      self.wrappedValue.toggle()
+      wrappedValue.toggle()
       args.remove(at: offset)
       break
      }
@@ -70,18 +93,28 @@ extension Bool: Negatable {}
 
 @propertyWrapper public struct CommandOption
 <Input: LosslessStringConvertible>: FlaggedProperty {
+ public var options: CommandPropertyOptions = []
  public var isOptional: Bool { true }
- public let strict: Bool
  public var wrappedValue: Input
 
- public init(wrappedValue: Input, _ strict: Bool = false) {
+ public init(wrappedValue: Input, _ options: CommandPropertyOptions ...) {
   self.wrappedValue = wrappedValue
-  self.strict = strict
+  for option in options {
+   self.options.insert(option)
+  }
  }
 
- public init(_ strict: Bool = false) where Input: ExpressibleByNilLiteral {
-  self.wrappedValue = nil
-  self.strict = strict
+ public init(_ options: CommandPropertyOptions ...)
+  where Input: ExpressibleByNilLiteral
+ {
+  wrappedValue = nil
+  for option in options {
+   self.options.insert(option)
+  }
+ }
+
+ public init() where Input: ExpressibleByNilLiteral {
+  wrappedValue = nil
  }
 
  // TODO: print out errors if thrown by throwing initilizers
@@ -89,7 +122,7 @@ extension Bool: Negatable {}
   case conversion(str: String, arg: String)
   public var reason: String {
    switch self {
-   case .conversion(let str, let arg):
+   case let .conversion(str, arg):
     "\(arg): couldn't convert '\(str)' to object of type \(Input.self)"
    }
   }
@@ -105,7 +138,7 @@ extension Bool: Negatable {}
     let argument = label.dropFirst()
     let option = input.drop(while: { $0 == "-" })
     let hasMatch =
-     !self.strict && option.count == 1 ?
+     !options.contains(.strictName) && option.count == 1 ?
      option.first == argument.first : option == argument
 
     guard hasMatch else { break }
@@ -115,7 +148,7 @@ extension Bool: Negatable {}
      throw Error.conversion(str: string, arg: String(argument))
     }
 
-    self.wrappedValue = newValue
+    wrappedValue = newValue
 
     args.removeSubrange(offset ... offset + 1)
     break
@@ -128,19 +161,27 @@ extension Bool: Negatable {}
 @propertyWrapper public struct CommandOptions
 <Input: LosslessStringConvertible>: FlaggedProperty {
  public var isOptional: Bool { true }
- public let strict: Bool
+ public var options: CommandPropertyOptions = []
  public var wrappedValue: [Input]
 
- public init(wrappedValue: [Input] = .empty, _ strict: Bool = false) {
+ public init(
+  wrappedValue: [Input] = .empty, _ options: CommandPropertyOptions ...
+ ) {
   self.wrappedValue = wrappedValue
-  self.strict = strict
+  for option in options {
+   self.options.insert(option)
+  }
+ }
+
+ public init(wrappedValue: [Input] = .empty) {
+  self.wrappedValue = wrappedValue
  }
 
  public enum Error: CommandError {
   case conversion(str: String, arg: String)
   public var reason: String {
    switch self {
-   case .conversion(let str, let arg):
+   case let .conversion(str, arg):
     "\(arg): couldn't convert '\(str)' to object of type \(Input.self)"
    }
   }
@@ -156,7 +197,7 @@ extension Bool: Negatable {}
     let argument = label.dropFirst()
     let option = input.drop(while: { $0 == "-" })
     let hasMatch =
-     !self.strict && option.count == 1 ?
+     !options.contains(.strictName) && option.count == 1 ?
      option.first == argument.first : option == argument
 
     guard hasMatch else { break }
@@ -169,7 +210,7 @@ extension Bool: Negatable {}
     let range = lowerBound ..< upperBound
     let inputs = args[lowerBound ..< upperBound].compactMap(Input.init)
 
-    self.wrappedValue = inputs
+    wrappedValue = inputs
     args.removeSubrange(range)
     break
    }
@@ -191,18 +232,18 @@ public struct CommandInput<Input: LosslessStringConvertible>: CommandProperty {
   public var reason: String {
    switch self {
    case .missingInput: "missing input"
-   case .conversion(let str):
+   case let .conversion(str):
     "couldn't convert input '\(str)' to type \(Input.self)"
    }
   }
  }
 
  public mutating func set(
-  _ label: String, with args: inout [String]
+  _: String, with args: inout [String]
  ) throws {
   guard let last = args.last else { return }
   if let newValue = Input(last) {
-   self.wrappedValue = newValue
+   wrappedValue = newValue
    args.removeLast()
   } else {
    throw Error.conversion(str: args.last!)
@@ -223,13 +264,16 @@ public struct CommandInputs<Input: LosslessStringConvertible>: CommandProperty {
  }
 
  public mutating func set(
-  _ label: String, with args: inout [String]
+  _: String, with args: inout [String]
  ) throws {
   guard args.notEmpty else { return }
-  let lowerBound = ((args.lastIndex(where: { $0.hasPrefix("-") }) ?? -1) + 1)
-  let inputs = args[lowerBound ..< args.count].compactMap(Input.init)
-  self.wrappedValue = inputs
-  args.removeSubrange(lowerBound ..< args.count)
+//  let lowerBound = ((args.lastIndex(where: { $0.hasPrefix("-") }) ?? -1) + 1)
+  let inputs = // args[lowerBound ..< args.count]
+   try args.invert {
+    try Input($0).throwing(CommandInput<Input>.Error.conversion(str: $0))
+   }
+  wrappedValue = inputs
+  // args.removeSubrange(lowerBound ..< args.count)
  }
 }
 
@@ -248,14 +292,16 @@ public extension CommandProtocol {
 
 // MARK: Conformances for Optionals and RawRepresentable
 extension Optional: LosslessStringConvertible
- where Wrapped: LosslessStringConvertible {
+ where Wrapped: LosslessStringConvertible
+{
  public init?(_ description: String) {
   self = Wrapped(description)
  }
 }
 
 extension Optional: CustomStringConvertible
- where Wrapped: CustomStringConvertible {
+ where Wrapped: CustomStringConvertible
+{
  public var description: String { self == nil ? "nil" : self!.description }
 }
 
@@ -277,9 +323,14 @@ public extension RawRepresentable where RawValue: LosslessStringConvertible {
 }
 
 extension Array: LosslessStringConvertible
- where Element: LosslessStringConvertible {
+ where Element: LosslessStringConvertible
+{
  public init?(_ description: String) {
-  guard description.first == "[", description.last == "]" else { return nil }
+  guard description.first == "[", description.last == "]" else {
+   guard let element = Element(description) else { return nil }
+   self = [element]
+   return
+  }
   var description = description
 
   description.removeFirst()
@@ -290,7 +341,7 @@ extension Array: LosslessStringConvertible
 
   for substring in slice {
    guard let element = Element(String(substring)) else { return nil }
-   self.append(element)
+   append(element)
   }
  }
 }

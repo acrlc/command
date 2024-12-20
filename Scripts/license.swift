@@ -1,6 +1,6 @@
 #!/usr/bin/env swift-shell
 import Command // ..
-import SwiftTUI // @git/rensbreur/SwiftTUI
+import SwiftTUI // $sources/rensbreur/SwiftTUI
 #if os(macOS)
 import enum CryptoKit.Insecure
 #else
@@ -8,7 +8,7 @@ import enum Crypto.Insecure
 #endif
 
 /// Displays any license listed on Github using the ``gh`` api command
-@main struct ViewLicense: Command {
+@main struct ViewLicense: AsyncCommand {
  @Flag var list: Bool
  @Input var license: License?
 
@@ -19,14 +19,14 @@ import enum Crypto.Insecure
   .joined(separator: .newline)
  }
 
- func main() {
+ func main() async {
   if list {
    // FIXME: clipping when printed in a smaller window
    print(descriptions)
   } else if let license {
    print(license.body)
   } else {
-   Application(rootView: LicenseView()).start()
+   await Application(rootView: LicenseView()).start()
   }
  }
 }
@@ -97,13 +97,14 @@ struct LicenseView: View {
  func setLicense(_ key: String) {
   do {
    guard let license = try License(lowerecasedKey: key.lowercased()) else {
-    errorMessage = "error, please make sure you have gh cli"
+    errorMessage = "invalid input"
     return
    }
    self.license = license
    if errorMessage != nil { errorMessage = nil }
   } catch {
-   self.errorMessage = "invalid input"
+   errorMessage = String(error.message.prefix(while: { $0 != .newline }))
+   // errorMessage = "error, please make sure you have gh cli"
   }
  }
 }

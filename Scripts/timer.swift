@@ -1,23 +1,15 @@
 #!/usr/bin/env swift-shell
 import Command // ..
 
-@main struct Timer: Command {
+@main struct Timer: AsyncCommand {
  @Inputs var duration: [Duration]
 
  let start: Date = .now
-
- var sum: Duration {
-  self.duration.reduce(into: .zero) { sum, next in sum += next }
- }
-
- var nanoseconds: Int64 { self.sum.nanoseconds }
-
+ var seconds: TimeInterval { duration.reduce(into: .zero, +=).seconds }
+ var end: Date { start.advanced(by: seconds) }
+ 
  func main() {
-  if self.nanoseconds >= 1_000_000_000 {
-   let seconds = Double(nanoseconds) / 1e9
-   let start = self.start
-   let end = start.advanced(by: seconds)
-
+  if seconds >= 1.0 {
    // MARK: - Repeat while current time is less than end time
    while true {
     guard Date.now < end else {
@@ -25,34 +17,39 @@ import Command // ..
      Shell.clearLine()
      exit(0)
     }
+    
     // find the time since starting
     let interval = Date.now.timeIntervalSince(start)
-
     // create duration based on the total subtracted by the current
     let time: Duration = .seconds((seconds - interval).rounded(.up))
-    let string = time.timerView
-
-    // print the formatted elapsed duration
-    Shell.appendInput(string)
-
+    
     // replace the buffer with an empty string
-    Shell.clearInput(string.count)
+    Shell.clearInput()
+    // print the formatted elapsed duration
+    Shell.appendInput("\(time.timerView)")
 
     // repeat
+    // try! await sleep(for: .seconds(1))
     sleep(1)
    }
   } else {
    // MARK: - Error if no results or the duration is less than one second
-   if self.duration.isEmpty {
-    print("input <\("duration", style: .boldDim)> required")
+   if duration.isEmpty {
+    let argument = CommandLine.arguments[1...].first?.drop(while: { $0 == "-" })
 
-    let arguments = CommandLine.arguments[1...].map { $0 }
-
-    if arguments.isEmpty || arguments.first == "help" {
+    func printUsage() {
      print("\n" + CommandLine.usage!)
     }
 
-    exit(-1)
+    switch argument {
+    case "help", "--help", "-help":
+     printUsage()
+     exit(0)
+    default:
+     print("input <\("duration", style: .boldDim)> required")
+     printUsage()
+     exit(-1)
+    }
    } else {
     exit(2, "duration must be >= 1 seconds")
    }
@@ -69,5 +66,11 @@ import Command // ..
    - units hour, minute, second, millisecond, microsecond or nanosecond
    - sum of all measurements must be greater than one second
    """
+ }
+ 
+ func handleInput(_:Shell.InputKey) async -> Bool { false }
+ func onInterruption() { 
+  Shell.clearLine()
+  exit(1)
  }
 }

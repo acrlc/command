@@ -2,11 +2,11 @@
 import XCTest
 
 final class CompileTests: XCTestCase {
- func testReadArguments() {
+ func testReadArguments() async {
   measure {
    CommandLine.arguments = [#filePath, "Hello World!"]
    var command = PrintCommand()
-   try! command.readArguments()
+   try! await command.readArguments()
   }
  }
 }

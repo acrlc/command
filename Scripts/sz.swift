@@ -18,7 +18,6 @@ import Command // ..
   var total: UInt64 = .zero
 
   Shell.appendInput(message)
-  Shell.clearInput(message.count)
 
   if inputs.isEmpty {
    let folder = Folder.current
@@ -37,6 +36,8 @@ import Command // ..
     }
    }
   }
+  
+  Shell.clearInput(message.count)
   echo(bytes: total)
  }
 }
