@@ -4,7 +4,7 @@ import Swizzle // @git/entangleduser/Swizzle
 #if os(macOS)
 import SwiftUI
 protocol CommandApp: CommandProtocol & App {
- mutating func main() async throws
+ consuming func main() async throws
 }
 
 extension CommandApp {

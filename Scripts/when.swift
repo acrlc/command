@@ -24,7 +24,7 @@ struct When: AsyncCommand {
  var time: Date?
  let clock: DateClock = .minimumResolution(1)
 
- @Option
+ @Option(.strictName)
  var input: File?
  @Inputs
  var arguments: [String]
@@ -33,10 +33,10 @@ struct When: AsyncCommand {
   print("\n" + CommandLine.usage!)
  }
 
- mutating func main() async throws {
+ consuming func main() async throws {
   guard let time, time.timeIntervalSinceNow >= 1 else {
-   if arguments.first == "help" {
-    print("printing usage")
+   let argument = CommandLine.arguments[1...].first?.drop(while: { $0 == "-" })
+   if argument == "help" {
     printUsage()
     exit(0)
    } else {
@@ -54,9 +54,9 @@ struct When: AsyncCommand {
    }
   }
 
-  var command = arguments.first
+  var command = arguments.isEmpty ? nil : arguments.removeFirst()
 
-  if let input {
+  if command != nil, let input {
    if arguments.isEmpty {
     arguments = ["./{}"]
    }
@@ -64,14 +64,12 @@ struct When: AsyncCommand {
     arguments.contains(where: { $0.contains("{}") }) ?
     arguments.map { $0.replacingOccurrences(of: "{}", with: input.path) } :
     arguments
-
-   command = arguments.first
   }
 
   try await clock.sleep(until: time)
 
   if let command {
-   try print(processOutput(command: command, arguments[1...]))
+   try print(processOutput(command: command, arguments))
   }
  }
 
@@ -84,9 +82,21 @@ struct When: AsyncCommand {
    - time must be a clock measurement at least one second after the current time
    """
  }
+ 
+ var handleInput: ((Shell.InputKey) async -> Bool)? = { _ in
+  false
+ }
+ let onInterruption: (@convention(c) (Int32) -> Void)? = { signal in
+  Shell.clearLine()
+  signal == 2 ? exit(0) : exit(1)
+ }
 }
 
 extension Date: LosslessStringConvertible {
+ private var withPotentialFutureDate: Self {
+  self > .now ? self : advanced(by: 86400)
+ }
+
  public init?(_ description: String) {
   guard var description = description.wrapped else {
    return nil
@@ -158,10 +168,8 @@ extension Date: LosslessStringConvertible {
   }
 
   let date = start.addingTimeInterval(interval)
-
-  guard date > .now else {
-   return nil
-  }
-  self = date
+  // next day is not a question, so maybe an intializer that respects this bias
+  // in the future
+  self = date.withPotentialFutureDate
  }
 }
