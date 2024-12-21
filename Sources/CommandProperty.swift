@@ -267,13 +267,11 @@ public struct CommandInputs<Input: LosslessStringConvertible>: CommandProperty {
   _: String, with args: inout [String]
  ) throws {
   guard args.notEmpty else { return }
-//  let lowerBound = ((args.lastIndex(where: { $0.hasPrefix("-") }) ?? -1) + 1)
-  let inputs = // args[lowerBound ..< args.count]
+  let inputs =
    try args.invert {
     try Input($0).throwing(CommandInput<Input>.Error.conversion(str: $0))
    }
   wrappedValue = inputs
-  // args.removeSubrange(lowerBound ..< args.count)
  }
 }
 
@@ -291,7 +289,7 @@ public extension CommandProtocol {
 }
 
 // MARK: Conformances for Optionals and RawRepresentable
-extension Optional: LosslessStringConvertible
+extension Optional: @retroactive LosslessStringConvertible
  where Wrapped: LosslessStringConvertible
 {
  public init?(_ description: String) {
@@ -299,7 +297,7 @@ extension Optional: LosslessStringConvertible
  }
 }
 
-extension Optional: CustomStringConvertible
+extension Optional: @retroactive CustomStringConvertible
  where Wrapped: CustomStringConvertible
 {
  public var description: String { self == nil ? "nil" : self!.description }
@@ -322,7 +320,7 @@ public extension RawRepresentable where RawValue: LosslessStringConvertible {
  var description: String { rawValue.description }
 }
 
-extension Array: LosslessStringConvertible
+extension Array: @retroactive LosslessStringConvertible
  where Element: LosslessStringConvertible
 {
  public init?(_ description: String) {
