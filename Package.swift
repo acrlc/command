@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
  name: "Command",
- platforms: [.macOS(.v10_15), .iOS(.v13)],
+ platforms: [.macOS(.v11), .iOS(.v13)],
  products: [.library(name: "Command", targets: ["Command"])],
  dependencies: [
   .package(url: "https://github.com/acrlc/shell.git", branch: "main"),
