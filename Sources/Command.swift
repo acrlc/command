@@ -32,7 +32,7 @@ public extension CommandProtocol {
  func handleInput(_: SwiftTUI.InputKey) async -> Bool { true }
  var inputParser: SwiftTUI.InputParser? { nil }
  #else
- func onInterruption() async {}
+ func onInterruption() async { exit(1) }
  // var onInterruption: (@convention(c) (Int32) -> Void)? { nil }
  func handleInput(_ key: Shell.InputKey) async -> Bool {
   Shell.write(key.rawValue)
