@@ -1,7 +1,8 @@
 #!/usr/bin/env swift-shell
 import Command // ..
-import SwiftTUI // $sources/rensbreur/SwiftTUI
-#if os(macOS)
+import SwiftTUI // @git/entangleduser/swifttui
+
+#if canImport(CryptoKit)
 import enum CryptoKit.Insecure
 #else
 import enum Crypto.Insecure
@@ -26,7 +27,7 @@ import enum Crypto.Insecure
   } else if let license {
    print(license.body)
   } else {
-   await Application(rootView: LicenseView()).start()
+   await Application(LicenseView())
   }
  }
 }
@@ -184,7 +185,9 @@ extension License: LosslessStringConvertible {
    return nil
   }
   // hash key to cache and retrieve in the temporary folder
-  let hash = resolvedKey.hash(with: Insecure.MD5.self)
+  let hash = Insecure.MD5.hash(data: Data(resolvedKey.utf8))
+   .compactMap { String(format: "%02x", $0) }
+   .joined()
   let temp = Folder.temporary
 
   if let data = try? temp.file(named: hash).read() {

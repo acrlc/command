@@ -5,11 +5,11 @@ import Command // ..
  @Inputs var duration: [Duration]
 
  let start: Date = .now
- var seconds: TimeInterval { duration.reduce(into: .zero, +=).seconds }
- var end: Date { start.advanced(by: seconds) }
- 
+
  func main() {
+  let seconds = duration.reduce(into: .zero, +=).seconds
   if seconds >= 1.0 {
+   let end = start.advanced(by: seconds)
    // MARK: - Repeat while current time is less than end time
    while true {
     guard Date.now < end else {
@@ -17,12 +17,12 @@ import Command // ..
      Shell.clearLine()
      exit(0)
     }
-    
+
     // find the time since starting
     let interval = Date.now.timeIntervalSince(start)
     // create duration based on the total subtracted by the current
     let time: Duration = .seconds((seconds - interval).rounded(.up))
-    
+
     // replace the buffer with an empty string
     Shell.clearInput()
     // print the formatted elapsed duration
@@ -67,9 +67,9 @@ import Command // ..
    - sum of all measurements must be greater than one second
    """
  }
- 
- func handleInput(_:Shell.InputKey) async -> Bool { false }
- func onInterruption() { 
+
+ func handleInput(_: Shell.InputKey) async -> Bool { false }
+ func onInterruption() {
   Shell.clearLine()
   exit(1)
  }

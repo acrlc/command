@@ -4,8 +4,13 @@ import struct Foundation.Date
 import struct Foundation.TimeInterval
 import class Foundation.UserDefaults
 import func Foundation.usleep
-import SwiftTUI // @git/rensbreur/SwiftTUI
+
+#if canImport(SwiftUI)
 import SwiftUI
+#else
+import OpenCombine
+#endif
+import SwiftTUI // @git/entangleduser/swifttui
 
 let storage = UserDefaults.standard
 let countKey = "count"
@@ -23,9 +28,12 @@ var useStorage: Bool? { storage.bool(forKey: persistKey) }
 ///   - persist, -p <true/false>: Enable or disable persistent storage.
 ///   - count, -c <float>: Set calorie count before resuming or after resetting.
 @main
-struct Calorie: Command {
+struct Calorie: AsyncCommand {
+ #if canImport(SwiftUI)
  @Flag
  var ui: Bool
+ #endif
+
  @Flag
  var reset: Bool
  @Option
@@ -38,7 +46,9 @@ struct Calorie: Command {
   let hourlyCalorieBurn: Double = 2000 / 24
   // these will count our calories burned at rest
   var calorieCount: Double = storage.double(forKey: countKey) {
-   didSet { storage.setValue(calorieCount, forKey: countKey) }
+   didSet {
+    storage.set(calorieCount, forKey: countKey)
+   }
   }
 
   let hourlyCalorieTargetDeficit: Double = 500 / 24.0
@@ -46,17 +56,19 @@ struct Calorie: Command {
   var desiredDeficitCount: Double =
    storage.double(forKey: deficitKey) {
    didSet {
-    storage.setValue(desiredDeficitCount, forKey: deficitKey)
+    storage.set(desiredDeficitCount, forKey: deficitKey)
    }
   }
 
   @Published
   var lastUpdateTime: TimeInterval! =
    storage.object(forKey: updateKey) as? Double {
-   didSet { storage.setValue(lastUpdateTime!, forKey: updateKey) }
+   didSet {
+    storage.set(lastUpdateTime!, forKey: updateKey)
+   }
   }
-  
-  var updateTask: Task<(), Never>? {
+
+  var updateTask: Task<Void, Never>? {
    willSet { updateTask?.cancel() }
   }
 
@@ -95,7 +107,7 @@ struct Calorie: Command {
    deficitColor =
     counter.calorieCount < counter.desiredDeficitCount ? .green : .red
   }
-  
+
   func startTask() {
    counter.updateTask = Task(priority: .userInitiated) {
     repeat {
@@ -155,6 +167,7 @@ struct Calorie: Command {
   }
  }
 
+ #if canImport(SwiftUI)
  // MARK: - App -
  struct CalorieApp: SwiftUI.App {
   @SwiftUI.ObservedObject
@@ -168,7 +181,7 @@ struct Calorie: Command {
    deficitColor =
     counter.calorieCount < counter.desiredDeficitCount ? .green : .red
   }
-  
+
   func startTask() {
    counter.updateTask = Task(priority: .userInitiated) {
     repeat {
@@ -177,7 +190,7 @@ struct Calorie: Command {
     } while true
    }
   }
-  
+
   func endTask() { counter.updateTask = nil }
 
   var body: some SwiftUI.Scene {
@@ -256,13 +269,14 @@ struct Calorie: Command {
    }
   }
  }
+ #endif
 
  // MARK: - Main -
- func main() {
+ @MainActor
+ func main() async {
   // set when not already the default or the same
-  if let persist, persist != useStorage {
-   print("Setting persistence to \(persist)")
-   storage.setValue(persist, forKey: persistKey)
+  if let persist {
+   storage.set(persist, forKey: persistKey)
   }
 
   // remove persistent values
@@ -272,11 +286,15 @@ struct Calorie: Command {
    }
   }
 
-  if let count { storage.setValue(count, forKey: countKey) }
+  if let count { storage.set(count, forKey: countKey) }
+  #if canImport(SwiftUI)
   if ui {
-   CalorieApp.main()
+   await CalorieApp.main()
   } else {
-   Application(rootView: CalorieView()).start()
+   await Application(rootView: CalorieView()).start()
   }
+  #else
+  await Application(rootView: CalorieView()).start()
+  #endif
  }
 }
